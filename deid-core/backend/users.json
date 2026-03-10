@@ -1,0 +1,38 @@
+[
+  {
+    "_id": "69ad3f044a3d75891f6539bf",
+    "walletAddress": "0x5cb867103e4ab9f523408100591d13403d15d56d",
+    "did": "did:ethr:sepolia:0x5cb867103e4ab9f523408100591d13403d15d56d",
+    "role": "user",
+    "nonce": "DeID Auth Nonce: d9cc1cd7bdda9c7b8805e3cde51f5925",
+    "createdAt": "2026-03-08T09:19:00.026Z",
+    "__v": 0
+  },
+  {
+    "_id": "69ad3f0a4a3d75891f6539d2",
+    "walletAddress": "0xe69f91e583732133a665d690d0b2c2ecb696b954",
+    "did": "did:ethr:sepolia:0xe69f91e583732133a665d690d0b2c2ecb696b954",
+    "role": "user",
+    "nonce": "DeID Auth Nonce: 94c80e7714c9ac3ac51bc7e8a76b27dd",
+    "createdAt": "2026-03-08T09:19:06.293Z",
+    "__v": 0
+  },
+  {
+    "_id": "69ad3f4b4a3d75891f6539e5",
+    "walletAddress": "0x7d828173126408b4fbdd3cef614698d452be5a3e",
+    "did": "did:ethr:sepolia:0x7d828173126408b4fbdd3cef614698d452be5a3e",
+    "role": "issuer",
+    "nonce": "DeID Auth Nonce: c7937b5ae9155c1937ec232445b4f279",
+    "createdAt": "2026-03-08T09:20:11.320Z",
+    "__v": 0
+  },
+  {
+    "_id": "69b0f610ac31fdd44f8fc3c7",
+    "walletAddress": "0xb5b7160af23186828ebdda1480e4efebf8981422",
+    "did": "did:ethr:sepolia:0xb5b7160af23186828ebdda1480e4efebf8981422",
+    "role": "issuer",
+    "nonce": "DeID Auth Nonce: 13ec51fc9b45138e43071de1500d9995",
+    "createdAt": "2026-03-11T04:56:48.609Z",
+    "__v": 0
+  }
+]

@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { api } from "@/lib/api";
+import { AuditTimeline } from "@/components/AuditTimeline";
 
 const CredentialDetail = () => {
   const { id } = useParams();
@@ -22,25 +23,59 @@ const CredentialDetail = () => {
       try {
         const token = localStorage.getItem("deid_token");
         if (!token || !id) return;
-        const res = await api.credentials.getById(id, token);
-        if (res.success) {
-          const c = res.data;
-          setCred({
-            id: c._id,
-            credentialHash: c.credentialHash,
-            title: c.title,
-            issuer: c.issuerId?.organizationName || c.issuerId?.name || "Verified Issuer",
-            issuerDid: c.issuerId?.did || "Unknown DID",
-            category: "other", // Default fallback if no category
-            status: c.revoked ? "revoked" : "verified",
-            description: c.description,
-            issueDate: new Date(c.issuedAt || c.createdAt || new Date()).toLocaleDateString(),
-            expiryDate: c.expiryDate ? new Date(c.expiryDate).toLocaleDateString() : null,
-            ipfsCid: c.ipfsCID,
-            txHash: c.blockchainTxHash,
-            metadata: {}
-          });
-        }
+
+        let fetched = false;
+        try {
+          const res = await api.credentials.getById(id, token);
+          if (res.success) {
+            const c = res.data;
+            setCred({
+              id: c._id,
+              credentialHash: c.credentialHash,
+              title: c.title,
+              issuer: c.issuerId?.organizationName || c.issuerId?.name || "Verified Issuer",
+              issuerDid: c.issuerId?.did || "Unknown DID",
+              category: "other", // Default fallback if no category
+              status: c.revoked ? "revoked" : "verified",
+              description: c.description,
+              issueDate: new Date(c.issuedAt || c.createdAt || new Date()).toLocaleDateString(),
+              expiryDate: c.expiryDate ? new Date(c.expiryDate).toLocaleDateString() : null,
+              ipfsCid: c.ipfsCID,
+              txHash: c.blockchainTxHash,
+              metadata: {},
+              isGov: false
+            });
+          }
+        } catch (e) { }
+
+        // Fallback / secondary fetch for Government Certificates
+        try {
+          const res = await api.certificates.getById(id, token);
+          if (res.success && res.data) {
+            const c = res.data;
+            setCred({
+              id: c.docHash,
+              credentialHash: c.docHash,
+              title: c.title,
+              issuer: "Government Agency",
+              issuerDid: c.createdByWallet || "Unknown DID",
+              category: "certification",
+              status: c.state === 'REVOKED' ? "revoked" : "verified",
+              description: c.description,
+              issueDate: new Date(c.createdAt || new Date()).toLocaleDateString(),
+              expiryDate: null,
+              ipfsCid: c.ipfsCID,
+              txHash: "Requires Smart Contract Check",
+              metadata: {
+                RequiredApprovals: c.requiredApprovals,
+                CurrentApprovals: c.approvers.length
+              },
+              isGov: true,
+              timestamps: c.stateTimestamps,
+              currentState: c.state
+            });
+          }
+        } catch (e) { }
       } catch (err) {
         console.error("Failed to fetch credential", err);
       } finally {
@@ -163,6 +198,16 @@ const CredentialDetail = () => {
             )}
           </div>
         </div>
+
+        {cred.isGov && cred.timestamps && (
+          <div className="glass-card p-6 mt-4">
+            <h3 className="font-display font-semibold text-lg mb-4 flex items-center gap-2">🏛️ Government Lifecycle Audit Trail</h3>
+            {/* dynamic import to avoid hoisting issues or use direct import in the file header */}
+            <div className="mt-4">
+              <AuditTimeline timestamps={cred.timestamps} currentState={cred.currentState} />
+            </div>
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex flex-wrap gap-3">

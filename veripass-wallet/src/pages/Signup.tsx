@@ -51,10 +51,12 @@ const Signup = () => {
         <p className="text-sm text-muted-foreground text-center mb-6">Start owning your credentials today</p>
 
         {/* Role selector */}
-        <div className="grid grid-cols-2 gap-3 mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
           {[
-            { value: "user" as UserRole, label: "Individual", icon: User },
-            { value: "issuer" as UserRole, label: "Issuer", icon: Building2 },
+            { value: "CITIZEN" as UserRole, label: "Citizen", icon: User },
+            { value: "ISSUER_OFFICER" as UserRole, label: "Gov Officer", icon: Building2 },
+            { value: "APPROVER" as UserRole, label: "Approver", icon: Shield },
+            { value: "ADMIN" as UserRole, label: "Admin", icon: Shield },
           ].map((r) => (
             <button
               key={r.value}

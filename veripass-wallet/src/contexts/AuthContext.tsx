@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback } from "react";
 import { api } from "@/lib/api";
 
-export type UserRole = "user" | "issuer";
+export type UserRole = "user" | "issuer" | "ISSUER_OFFICER" | "APPROVER" | "ADMIN" | "CITIZEN";
 
 export interface User {
   id: string;

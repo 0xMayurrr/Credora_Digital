@@ -23,10 +23,14 @@ Using **Zero-Knowledge Proofs (ZK-SNARKs)**, users safely prove their reputation
 ## ✨ Core Features
 - 🔐 **Web3 Authentication:** Secure passwordless sign-in using MetaMask signatures.
 - 🆔 **Universal DID Construction:** Automatic generation of customized `did:polygon:...` identity documents based on the W3C standards.
-- 📜 **Verifiable Credentials:** Immutable issuance of cryptographic credentials utilizing IPFS and hashes anchored on the Sepolia smart contracts.
-- 🥷 **Zero-Knowledge Architecture:** Prove your achievements to third parties maintaining absolute privacy using ZK mechanics.
-- 📇 **One-Click Shareability:** Generate instant, verifiable QR Codes or share-links for recruiters to silently cryptographically verify an applicant.
-- 💻 **Dev Rep Engine (Bonus):** Natively connected to GitHub to calculate developer activity statistics and mint them as a unique on-chain credential.
+- 🏛️ **Government Portal:** Specialized dashboard for Government-Authorized Issuers to manage official certificates.
+- 🔄 **Document Lifecycle State Machine:** Full traceability from DRAFT -> UNDER_REVIEW -> APPROVED -> SIGNED -> ISSUED -> REVOKED.
+- ✍️ **Multi-Signature Approval:** Multi-officer signing workflows on-chain for document assurance.
+- 📜 **Verifiable Credentials:** Immutable issuance of cryptographic credentials utilizing IPFS and hashes anchored on the blockchain.
+- 🥷 **Zero-Knowledge Architecture:** Prove your achievements to third parties maintaining absolute privacy using ZK mechanics (Semaphore).
+- 📇 **One-Click Shareability:** Generate instant, verifiable QR Codes or share-links for recruiters.
+- 💻 **Dev Rep Engine:** Natively connected to GitHub to calculate developer activity statistics and mint them as a unique on-chain credential.
+- 🚫 **Revocation Registry:** Ability for authorized admins to revoke credentials with on-chain transparency.
 
 ---
 

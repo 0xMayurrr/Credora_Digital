@@ -61,7 +61,7 @@ const Dashboard = () => {
           setCredentials(mapped);
         }
 
-        if (user?.role !== 'issuer') {
+        if (user?.role !== 'issuer' && !['ISSUER_OFFICER', 'APPROVER', 'ADMIN'].includes(user?.role || '')) {
           const shareRes = await api.shares.getAll(token);
           if (shareRes.success) setShares(shareRes.data);
         }
@@ -102,9 +102,18 @@ const Dashboard = () => {
               </button>
             </div>
           </div>
-          <Link to="/issuer/issue">
-            <Button className="gap-2 bg-primary">Issue Credential <Wallet className="h-4 w-4" /></Button>
-          </Link>
+          <div className="flex items-center gap-3">
+            {['ISSUER_OFFICER', 'APPROVER', 'ADMIN'].includes(user?.role || '') && (
+              <Link to="/gov">
+                <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700">Gov Portal <ShieldCheck className="h-4 w-4" /></Button>
+              </Link>
+            )}
+            {user?.role === "issuer" && (
+              <Link to="/issuer/issue">
+                <Button className="gap-2 bg-primary">Issue Credential <Wallet className="h-4 w-4" /></Button>
+              </Link>
+            )}
+          </div>
         </motion.div>
 
         {/* Stats */}
@@ -116,7 +125,7 @@ const Dashboard = () => {
         </div>
 
         {/* Developer Portfolio & ZK Rep Score */}
-        {user?.role !== "issuer" && (
+        {(user?.role === "user" || user?.role === "CITIZEN") && (
           <div className="glass-card p-6 space-y-4 border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.1)] relative overflow-hidden">
             <div className="absolute top-0 right-0 bg-emerald-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg uppercase tracking-wider">
               Recruiter View

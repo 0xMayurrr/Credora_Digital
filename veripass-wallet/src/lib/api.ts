@@ -161,5 +161,49 @@ export const api = {
       if (!res.ok) throw new Error('GitHub api call failed');
       return res.json();
     }
+  },
+  certificates: {
+    create: async (formData: FormData, token: string) => {
+      const res = await fetch(`${API_URL}/certificates/create`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to create certificate draft');
+      return data;
+    },
+    getAll: async (token: string) => {
+      const res = await fetch(`${API_URL}/certificates`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Failed to fetch certificates');
+      return res.json();
+    },
+    getById: async (hash: string, token: string) => {
+      const res = await fetch(`${API_URL}/certificates/${hash}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Failed to fetch certificate');
+      return res.json();
+    },
+    verify: async (hash: string) => {
+      const res = await fetch(`${API_URL}/certificates/verify/${hash}`);
+      if (!res.ok) throw new Error('Failed to verify certificate');
+      return res.json();
+    },
+    updateState: async (hash: string, newState: string, token: string) => {
+      const res = await fetch(`${API_URL}/certificates/${hash}/state`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ newState }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to update certificate state');
+      return data;
+    }
   }
 };

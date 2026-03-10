@@ -7,6 +7,7 @@ import { categoryIcons } from "@/lib/mock-data";
 import { Search, CheckCircle2, AlertTriangle, XCircle, Shield, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { api } from "@/lib/api";
+import { AuditTimeline } from "@/components/AuditTimeline";
 
 const Verify = () => {
   const [searchParams] = useSearchParams();
@@ -67,16 +68,38 @@ const Verify = () => {
           ipfsCid: res.blockchainData?.ipfsCID || "",
           txHash: "Verifiable on-chain",
           category: "other",
+          isGov: false
         });
-      } else {
-        setNotFound(true);
+        return;
       }
-    } catch (err) {
-      console.error(err);
-      setNotFound(true);
-    } finally {
-      setVerifying(false);
-    }
+    } catch (err) { }
+
+    try {
+      const govRes = await api.certificates.verify(idToVerify.trim());
+      if (govRes.success) {
+        const c = govRes.data;
+        setResult({
+          id: c.docHash,
+          status: c.state === 'REVOKED' ? "revoked" : c.state === 'ISSUED' ? "valid" : "pending",
+          title: c.title,
+          issuer: "Government Agency",
+          recipient: c.issuedToWallet?.substring(0, 10) + '...',
+          description: c.description,
+          issueDate: new Date(c.createdAt || Date.now()).toLocaleDateString(),
+          expiryDate: null,
+          ipfsCid: c.ipfsCID,
+          txHash: "Requires Smart Contract Check",
+          category: "certification",
+          isGov: true,
+          timestamps: c.stateTimestamps,
+          currentState: c.state
+        });
+        return;
+      }
+    } catch (err) { }
+
+    setNotFound(true);
+    setVerifying(false);
   };
 
   return (
@@ -143,6 +166,13 @@ const Verify = () => {
                   </p>
                 </div>
               </div>
+
+              {result.isGov && result.timestamps && (
+                <div className="mt-6 border-t border-border/50 pt-6">
+                  <h3 className="font-display font-semibold text-lg mb-4 flex items-center gap-2">🏛️ Government Lifecycle Audit Trail</h3>
+                  <AuditTimeline timestamps={result.timestamps} currentState={result.currentState} />
+                </div>
+              )}
 
               {/* Credential info */}
               <div className="space-y-4">

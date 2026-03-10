@@ -17,6 +17,7 @@ import About from "./pages/About";
 import IssueCredential from "./pages/IssueCredential";
 import IssuerProfile from "./pages/IssuerProfile";
 import VerifyDev from "./pages/VerifyDev";
+import GovPortal from "./pages/GovPortal";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -42,6 +43,7 @@ const App = () => (
             <Route path="/about" element={<About />} />
             <Route path="/issuer/issue" element={<IssueCredential />} />
             <Route path="/issuer/profile" element={<IssuerProfile />} />
+            <Route path="/gov" element={<GovPortal />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

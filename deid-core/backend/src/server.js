@@ -7,6 +7,8 @@ const connectDB = require('./config/database');
 // Load env vars
 dotenv.config();
 
+const listenToEvents = require('./listeners/contractEvents');
+
 // Connect to database
 connectDB();
 
@@ -23,6 +25,7 @@ app.use('/api/credentials', require('./routes/credentialRoutes'));
 app.use('/api/verify', require('./routes/verifyRoutes'));
 app.use('/api/shares', require('./routes/shareRoutes'));
 app.use('/api/devrep', require('./routes/devRepRoutes'));
+app.use('/api/certificates', require('./routes/certificates'));
 
 // Basic route
 app.get('/', (req, res) => {
@@ -42,4 +45,5 @@ const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
     console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+    listenToEvents(); // Start listening to blockchain
 });

@@ -36,10 +36,33 @@ const Credentials = () => {
             category: c.category || "other",
             status: c.revoked ? "revoked" : "verified",
             description: c.description,
-            issueDate: new Date(c.issuedAt || new Date()).toLocaleDateString(),
+            issueDate: new Date(c.issuedAt || c.createdAt || new Date()).toLocaleDateString(),
             expiryDate: c.expiryDate ? new Date(c.expiryDate).toLocaleDateString() : null,
+            isGov: false
           }));
-          setCredentials(mapped);
+
+          let govMapped: any[] = [];
+          if (user?.role !== 'issuer') {
+            try {
+              const govRes = await api.certificates.getAll(token);
+              if (govRes.success) {
+                govMapped = govRes.data.map((c: any) => ({
+                  id: c.docHash,
+                  title: c.title,
+                  issuer: "Government Agency",
+                  recipient: c.issuedToWallet?.substring(0, 10) + '...',
+                  category: "certification",
+                  status: c.state === 'REVOKED' ? "revoked" : "verified",
+                  description: c.description,
+                  issueDate: new Date(c.createdAt || new Date()).toLocaleDateString(),
+                  expiryDate: null,
+                  isGov: true
+                }));
+              }
+            } catch (e) { }
+          }
+
+          setCredentials([...mapped, ...govMapped]);
         }
       } catch (err) {
         console.error("Failed to fetch credentials", err);
@@ -115,9 +138,12 @@ const Credentials = () => {
                 >
                   <Link to={`/credentials/${cred.id}`} className="glass-card-hover p-5 block h-full">
                     <div className="flex items-start justify-between mb-3">
-                      <span className={`text-xs px-2.5 py-1 rounded-full border ${categoryColors[cred.category as keyof typeof categoryColors] || categoryColors.other}`}>
-                        {categoryIcons[cred.category as keyof typeof categoryIcons] || categoryIcons.other} {cred.category}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs px-2.5 py-1 rounded-full border ${categoryColors[cred.category as keyof typeof categoryColors] || categoryColors.other}`}>
+                          {categoryIcons[cred.category as keyof typeof categoryIcons] || categoryIcons.other} {cred.category}
+                        </span>
+                        {cred.isGov && <span className="text-xs px-2 py-1 rounded-full font-bold bg-blue-100 text-blue-700 border border-blue-200 shadow-sm">Official Gov. Issue 🏛️</span>}
+                      </div>
                       <span className={`text-xs px-2 py-1 rounded-full font-medium ${cred.status === "verified" ? "bg-success/10 text-success" :
                         cred.status === "pending" ? "bg-warning/10 text-warning" :
                           "bg-destructive/10 text-destructive"
@@ -126,7 +152,7 @@ const Credentials = () => {
                       </span>
                     </div>
                     <h3 className="font-medium mb-1">{cred.title}</h3>
-                    <p className="text-sm text-muted-foreground mb-3">{user?.role === 'issuer' ? `Recipient: ${cred.recipient}` : cred.issuer}</p>
+                    <p className="text-sm text-muted-foreground mb-3 font-semibold">{user?.role === 'issuer' ? `Recipient: ${cred.recipient}` : `Issued by: ${cred.issuer}`}</p>
                     <p className="text-xs text-muted-foreground line-clamp-2">{cred.description}</p>
                     <div className="flex items-center justify-between mt-4 pt-3 border-t border-border/50">
                       <span className="text-xs text-muted-foreground">Issued {cred.issueDate}</span>

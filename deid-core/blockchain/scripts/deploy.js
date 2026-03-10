@@ -1,17 +1,36 @@
 const hre = require("hardhat");
 
 async function main() {
-    const account = (await hre.ethers.getSigners())[0];
-    console.log("Deploying contracts with the account:", account.address);
+    const [deployer] = await hre.ethers.getSigners();
+    console.log("🚀 Deploying contracts with account:", deployer.address);
 
-    // Deploying CredentialRegistry
-    const CredentialRegistry = await hre.ethers.getContractFactory("CredentialRegistry");
-    const credentialRegistry = await CredentialRegistry.deploy();
+    // 1. Deploy RoleManager
+    const RoleManager = await hre.ethers.getContractFactory("RoleManager");
+    const roleManager = await RoleManager.deploy();
+    await roleManager.waitForDeployment();
+    const roleManagerAddress = await roleManager.getAddress();
+    console.log("✅ RoleManager deployed to:", roleManagerAddress);
 
-    await credentialRegistry.waitForDeployment();
-    const address = await credentialRegistry.getAddress();
+    // 2. Deploy RevocationRegistry
+    const RevocationRegistry = await hre.ethers.getContractFactory("RevocationRegistry");
+    const revocationRegistry = await RevocationRegistry.deploy(roleManagerAddress);
+    await revocationRegistry.waitForDeployment();
+    const revocationRegistryAddress = await revocationRegistry.getAddress();
+    console.log("✅ RevocationRegistry deployed to:", revocationRegistryAddress);
 
-    console.log("CredentialRegistry deployed to:", address);
+    // 3. Deploy CertificateLifecycle
+    const CertificateLifecycle = await hre.ethers.getContractFactory("CertificateLifecycle");
+    const certificateLifecycle = await CertificateLifecycle.deploy(roleManagerAddress, revocationRegistryAddress);
+    await certificateLifecycle.waitForDeployment();
+    const lifecycleAddress = await certificateLifecycle.getAddress();
+    console.log("✅ CertificateLifecycle deployed to:", lifecycleAddress);
+
+    console.log("\n--- DEPLOYMENT SUMMARY ---");
+    console.log("Copy these to your .env files:");
+    console.log(`VITE_LIFECYCLE_CONTRACT_ADDRESS=${lifecycleAddress}`);
+    console.log(`LIFECYCLE_CONTRACT_ADDRESS=${lifecycleAddress}`);
+    console.log(`ROLE_MANAGER_ADDRESS=${roleManagerAddress}`);
+    console.log("--------------------------");
 }
 
 main().catch((error) => {
