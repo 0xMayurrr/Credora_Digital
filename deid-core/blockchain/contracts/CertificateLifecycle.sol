@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "./RoleManager.sol";
@@ -46,12 +46,18 @@ contract CertificateLifecycle is Pausable {
     }
 
     modifier onlyOfficer() {
-        require(roleManager.hasRole(msg.sender, RoleManager.Role.ISSUER_OFFICER), "CertificateLifecycle: Must be ISSUER_OFFICER");
+        require(
+            roleManager.hasRole(roleManager.ISSUER_OFFICER_ROLE(), msg.sender),
+            "CertificateLifecycle: Must be ISSUER_OFFICER"
+        );
         _;
     }
 
     modifier onlyApprover() {
-        require(roleManager.hasRole(msg.sender, RoleManager.Role.APPROVER), "CertificateLifecycle: Must be APPROVER");
+        require(
+            roleManager.hasRole(roleManager.APPROVER_ROLE(), msg.sender),
+            "CertificateLifecycle: Must be APPROVER"
+        );
         _;
     }
 

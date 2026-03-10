@@ -1,159 +1,204 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.24;
+
+import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "./RoleManager.sol";
 
 /**
  * @title CredentialRegistry
- * @dev Registry for issuing, revoking, and verifying credentials stored off-chain.
+ * @dev Issues, verifies, and revokes credentials.
+ *      Uses EIP-712 typed data signing so the ISSUER must sign each credential —
+ *      the server wallet CANNOT issue on someone else's behalf.
  */
-contract CredentialRegistry {
-    address public owner;
+contract CredentialRegistry is EIP712 {
+    RoleManager public roleManager;
+
+    bytes32 public constant CREDENTIAL_TYPEHASH = keccak256(
+        "Credential(address subject,string credentialType,string metadataURI,uint256 expirationDate)"
+    );
 
     struct Credential {
         address issuer;
-        address recipient;
-        string ipfsCID;
+        address subject;
+        string credentialType;
+        string metadataURI;     // ipfs://CID of document metadata
         uint256 issuedAt;
+        uint256 expirationDate; // 0 = no expiry
         bool revoked;
     }
 
-    mapping(address => bool) public authorizedIssuers;
+    // credentialId => Credential
     mapping(bytes32 => Credential) public credentials;
+    // subject => list of credentialIds
+    mapping(address => bytes32[]) public credentialsBySubject;
+    // issuer => list of credentialIds
+    mapping(address => bytes32[]) public credentialsByIssuer;
+    // Dev Rep Scores (kept here for backward compat with CredentialRegistry usage)
     mapping(address => uint256) public devRepScores;
 
+    event CredentialIssued(
+        bytes32 indexed credentialId,
+        address indexed issuer,
+        address indexed subject,
+        string credentialType
+    );
+    event CredentialRevoked(bytes32 indexed credentialId, address indexed issuer);
     event IssuerAuthorized(address indexed issuer);
-    event IssuerRevoked(address indexed issuer);
-    event CredentialIssued(bytes32 indexed credentialHash, address indexed issuer, address indexed recipient, string ipfsCID);
-    event CredentialRevoked(bytes32 indexed credentialHash, address indexed issuer);
     event RepScoreUpdated(address indexed user, uint256 newScore);
 
-    modifier onlyOwner() {
-        require(msg.sender == owner, "Only owner can perform this action");
-        _;
+    constructor(address _roleManager)
+        EIP712("CredoraRegistry", "1")
+    {
+        roleManager = RoleManager(_roleManager);
     }
 
     modifier onlyAuthorizedIssuer() {
-        require(authorizedIssuers[msg.sender], "Caller is not an authorized issuer");
+        require(
+            roleManager.hasRole(roleManager.ISSUER_OFFICER_ROLE(), msg.sender),
+            "CredentialRegistry: Must be ISSUER_OFFICER"
+        );
         _;
     }
 
-    constructor() {
-        owner = msg.sender;
-        // Authorize the deployer by default
-        authorizedIssuers[msg.sender] = true;
-    }
-
     /**
-     * @dev Authorize a new issuer
-     * @param issuer Address of the issuer
-     */
-    function authorizeIssuer(address issuer) external onlyOwner {
-        require(!authorizedIssuers[issuer], "Issuer already authorized");
-        authorizedIssuers[issuer] = true;
-        emit IssuerAuthorized(issuer);
-    }
-
-    /**
-     * @dev Revoke an issuer's authorization
-     * @param issuer Address of the issuer
-     */
-    function revokeIssuer(address issuer) external onlyOwner {
-        require(authorizedIssuers[issuer], "Issuer not authorized");
-        authorizedIssuers[issuer] = false;
-        emit IssuerRevoked(issuer);
-    }
-
-    /**
-     * @dev Issue a new credential
-     * @param recipient Address of the credential recipient
-     * @param ipfsCID IPFS CID string of the document
-     * @param credentialHash Unique SHA256 hash representing the credential
+     * @dev Issue a credential with EIP-712 signature verification.
+     *      The issuer must sign the credential data from their own wallet (MetaMask).
+     *      The server cannot issue on behalf of anyone.
+     *
+     * @param subject          Wallet of the credential recipient
+     * @param credentialType   e.g. "UniversityDegree", "BootcampCert"
+     * @param metadataURI      IPFS URI of document metadata JSON
+     * @param expirationDate   Unix timestamp, 0 = never expires
+     * @param signature        EIP-712 signature from the issuer's wallet
      */
     function issueCredential(
-        address recipient,
-        string calldata ipfsCID,
-        bytes32 credentialHash
-    ) external onlyAuthorizedIssuer {
-        require(credentials[credentialHash].issuedAt == 0, "Credential already exists");
+        address subject,
+        string calldata credentialType,
+        string calldata metadataURI,
+        uint256 expirationDate,
+        bytes calldata signature
+    ) external onlyAuthorizedIssuer returns (bytes32 credentialId) {
+        // Verify the issuer actually signed this data from their own MetaMask
+        require(
+            _verifyIssuerSignature(subject, credentialType, metadataURI, expirationDate, signature),
+            "CredentialRegistry: Invalid issuer signature"
+        );
 
-        credentials[credentialHash] = Credential({
+        // Unique ID from all credential fields
+        credentialId = keccak256(
+            abi.encodePacked(msg.sender, subject, credentialType, metadataURI, block.timestamp)
+        );
+        require(credentials[credentialId].issuedAt == 0, "CredentialRegistry: Already exists");
+
+        credentials[credentialId] = Credential({
             issuer: msg.sender,
-            recipient: recipient,
-            ipfsCID: ipfsCID,
+            subject: subject,
+            credentialType: credentialType,
+            metadataURI: metadataURI,
             issuedAt: block.timestamp,
+            expirationDate: expirationDate,
             revoked: false
         });
 
-        emit CredentialIssued(credentialHash, msg.sender, recipient, ipfsCID);
+        credentialsBySubject[subject].push(credentialId);
+        credentialsByIssuer[msg.sender].push(credentialId);
+
+        emit CredentialIssued(credentialId, msg.sender, subject, credentialType);
     }
 
     /**
-     * @dev Revoke a previously issued credential
-     * @param credentialHash Unique SHA256 hash representing the credential
+     * @dev Revoke a credential. Only the original issuer can revoke.
      */
-    function revokeCredential(bytes32 credentialHash) external {
-        require(credentials[credentialHash].issuedAt != 0, "Credential does not exist");
-        require(credentials[credentialHash].issuer == msg.sender, "Only the issuer can revoke");
-        require(!credentials[credentialHash].revoked, "Credential already revoked");
-
-        credentials[credentialHash].revoked = true;
-
-        emit CredentialRevoked(credentialHash, msg.sender);
+    function revokeCredential(bytes32 credentialId) external {
+        Credential storage cred = credentials[credentialId];
+        require(cred.issuedAt != 0, "CredentialRegistry: Does not exist");
+        require(cred.issuer == msg.sender, "CredentialRegistry: Only issuer can revoke");
+        require(!cred.revoked, "CredentialRegistry: Already revoked");
+        cred.revoked = true;
+        emit CredentialRevoked(credentialId, msg.sender);
     }
 
     /**
-     * @dev Verify a credential's authenticity and status
-     * @param credentialHash Unique SHA256 hash representing the credential
-     * @return isValid Whether the credential exists and is not revoked
-     * @return issuer Address of the issuer
-     * @return recipient Address of the recipient
-     * @return ipfsCID IPFS CID of the document
-     * @return issuedAt Timestamp of issuance
-     * @return isRevoked Revocation status
+     * @dev Verify a credential directly on-chain.
      */
-    function verifyCredential(bytes32 credentialHash) external view returns (
+    function verifyCredential(bytes32 credentialId) external view returns (
         bool isValid,
+        bool isExpired,
+        bool isRevoked,
         address issuer,
-        address recipient,
-        string memory ipfsCID,
-        uint256 issuedAt,
-        bool isRevoked
+        address subject,
+        string memory credentialType,
+        uint256 issuedAt
     ) {
-        Credential memory cred = credentials[credentialHash];
-        bool exists = cred.issuedAt != 0;
+        Credential memory cred = credentials[credentialId];
+        bool expired = cred.expirationDate != 0 && block.timestamp > cred.expirationDate;
         return (
-            exists && !cred.revoked,
+            cred.issuedAt != 0 && !cred.revoked && !expired,
+            expired,
+            cred.revoked,
             cred.issuer,
-            cred.recipient,
-            cred.ipfsCID,
-            cred.issuedAt,
-            cred.revoked
+            cred.subject,
+            cred.credentialType,
+            cred.issuedAt
         );
     }
 
     /**
-     * @dev Check if an address is an authorized issuer
-     * @param issuer Address to check
-     * @return bool True if authorized, false otherwise
+     * @dev Get all credential IDs for a given subject (wallet).
      */
-    function checkIssuer(address issuer) external view returns (bool) {
-        return authorizedIssuers[issuer];
+    function getCredentialsBySubject(address subject) external view returns (bytes32[] memory) {
+        return credentialsBySubject[subject];
     }
 
     /**
-     * @dev Update a user's Dev Rep Score
-     * @param user Address of the user
-     * @param repos Number of github repos
-     * @param badges Number of hackathon badges/certifications
-     * @param multiplier Multiplier (e.g., 10 for basic scoring)
+     * @dev Get a single credential struct.
      */
-    function updateRepScore(
-        address user,
-        uint256 repos,
-        uint256 badges,
-        uint256 multiplier
-    ) external onlyAuthorizedIssuer {
+    function getCredential(bytes32 credentialId) external view returns (Credential memory) {
+        return credentials[credentialId];
+    }
+
+    /**
+     * @dev Legacy: check if issuer is authorized by checking if they have ISSUER_OFFICER_ROLE.
+     */
+    function checkIssuer(address issuer) external view returns (bool) {
+        return roleManager.hasRole(roleManager.ISSUER_OFFICER_ROLE(), issuer);
+    }
+
+    /**
+     * @dev Update Dev Rep Score — called by server wallet after computing score from GitHub.
+     */
+    function updateRepScore(address user, uint256 repos, uint256 badges, uint256 multiplier)
+        external
+    {
+        require(
+            roleManager.hasRole(roleManager.ISSUER_OFFICER_ROLE(), msg.sender) ||
+            roleManager.hasRole(roleManager.ADMIN_ROLE(), msg.sender),
+            "CredentialRegistry: Not authorized to update rep score"
+        );
         uint256 score = (repos + badges) * multiplier;
         devRepScores[user] = score;
         emit RepScoreUpdated(user, score);
+    }
+
+    // ─── Internal ────────────────────────────────────────────────────────────
+
+    function _verifyIssuerSignature(
+        address subject,
+        string calldata credentialType,
+        string calldata metadataURI,
+        uint256 expirationDate,
+        bytes calldata signature
+    ) internal view returns (bool) {
+        bytes32 structHash = keccak256(abi.encode(
+            CREDENTIAL_TYPEHASH,
+            subject,
+            keccak256(bytes(credentialType)),
+            keccak256(bytes(metadataURI)),
+            expirationDate
+        ));
+        bytes32 digest = _hashTypedDataV4(structHash);
+        address recovered = ECDSA.recover(digest, signature);
+        return recovered == msg.sender;
     }
 }

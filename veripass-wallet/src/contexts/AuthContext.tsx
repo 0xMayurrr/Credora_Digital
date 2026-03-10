@@ -1,7 +1,21 @@
 import React, { createContext, useContext, useState, useCallback } from "react";
+import { ethers } from "ethers";
 import { api } from "@/lib/api";
+import { CONTRACT_ADDRESSES } from "@/config/contracts";
+
+// ABI — minimal, only getRole needed here
+const ROLE_MANAGER_ABI = [
+  "function getRole(address user) external view returns (uint8)",
+];
 
 export type UserRole = "user" | "issuer" | "ISSUER_OFFICER" | "APPROVER" | "ADMIN" | "CITIZEN";
+
+const ROLE_MAP: Record<number, UserRole> = {
+  0: "CITIZEN",
+  1: "ISSUER_OFFICER",
+  2: "APPROVER",
+  3: "ADMIN",
+};
 
 export interface User {
   id: string;
@@ -33,6 +47,36 @@ export const useAuth = () => {
   return ctx;
 };
 
+/**
+ * Reads the user's role directly from the RoleManager contract.
+ * Falls back to the backend-provided role if the contract address isn't set yet.
+ */
+const getRoleFromChain = async (walletAddress: string): Promise<UserRole> => {
+  try {
+    // Only query if the contract address is actually configured
+    if (
+      !CONTRACT_ADDRESSES.ROLE_MANAGER ||
+      CONTRACT_ADDRESSES.ROLE_MANAGER === "0x0000000000000000000000000000000000000000"
+    ) {
+      return "CITIZEN";
+    }
+    const provider = new ethers.JsonRpcProvider(
+      (import.meta as any).env.VITE_BLOCKCHAIN_RPC ||
+      "https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161"
+    );
+    const roleContract = new ethers.Contract(
+      CONTRACT_ADDRESSES.ROLE_MANAGER,
+      ROLE_MANAGER_ABI,
+      provider
+    );
+    const roleId = await roleContract.getRole(walletAddress);
+    return ROLE_MAP[Number(roleId)] || "CITIZEN";
+  } catch (err) {
+    console.warn("Could not read role from chain, falling back to DB role.", err);
+    return "CITIZEN";
+  }
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(() => {
     const saved = localStorage.getItem("deid_user");
@@ -49,6 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     try {
       const { token, user: userData } = await api.auth.login(email, password);
+      // For email users, role comes from DB (email users have no wallet to check on-chain)
       const u: User = { ...userData, loginMethod: "email" as const };
       persistUser(u);
       localStorage.setItem("deid_token", token);
@@ -64,7 +109,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error("MetaMask not installed");
     }
     try {
-      // Force MetaMask to prompt account selection even if previously connected
       await (window as any).ethereum.request({
         method: "wallet_requestPermissions",
         params: [{ eth_accounts: {} }],
@@ -73,16 +117,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const accounts = await (window as any).ethereum.request({ method: "eth_requestAccounts" });
       const address = accounts[0];
 
+      // 1. Get nonce from backend (for signature auth — still needed for JWT session)
       const { nonce } = await api.auth.getNonce(address, role);
 
+      // 2. Sign the nonce
       const signature = await (window as any).ethereum.request({
         method: "personal_sign",
         params: [nonce, address],
       });
 
+      // 3. Verify signature with backend (get JWT token + basic profile metadata)
       const { token, user: userData } = await api.auth.verifyWallet(address, signature);
 
-      const u: User = { ...userData, loginMethod: "wallet" as const };
+      // 4. ✅ Read the REAL role from the blockchain — override what the backend says
+      const chainRole = await getRoleFromChain(address);
+      const effectiveRole: UserRole =
+        chainRole !== "CITIZEN" ? chainRole : (userData.role as UserRole) || "CITIZEN";
+
+      const u: User = {
+        ...userData,
+        role: effectiveRole,
+        loginMethod: "wallet" as const,
+      };
       persistUser(u);
       localStorage.setItem("deid_token", token);
     } finally {
