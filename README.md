@@ -549,7 +549,7 @@ FABRIC_CHANNEL_NAME=credora-main-channel
 
 ---
 
-## 👤 Author
+## 👤 Authors
 
 <table>
   <tr>
@@ -563,17 +563,18 @@ FABRIC_CHANNEL_NAME=credora-main-channel
   </tr>
 </table>
 
-### 🏆 Hackathon Record
 
-| Competition | Result |
-|---|---|
-| **HACKTU 6.0** | 🏅 Top 5 Finalist |
-| **WE Hack** | 🏅 Top 5 Finalist |
-| **Hack N Win 2.0** | 🥇 Winner |
-| **Build on Aptos** | 🏅 Finalist |
-| **Deep Funding** | 🏅 Finalist |
-| **Pivot** | 🏅 Finalist |
-| **Smart India Hackathon** | 🧑‍🏫 Internal Mentor |
+<table>
+  <tr>
+    <td>
+      <strong>Mohameed Irfan S </strong><br>
+      BSc Computer Technology — Blockchain & Distributed Computing<br>
+      Rathinam University, Tamil Nadu<br><br>
+      📧 irfanmhmd8248@gmail.com<br>
+      🔗 <a href="https://github.com/irfanmhmd">github.com/irfanmhmd</a>
+    </td>
+  </tr>
+</table>
 
 ---
 
