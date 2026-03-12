@@ -1,21 +1,8 @@
 import React, { createContext, useContext, useState, useCallback } from "react";
 import { ethers } from "ethers";
 import { api } from "@/lib/api";
-import { CONTRACT_ADDRESSES } from "@/config/contracts";
-
-// ABI — minimal, only getRole needed here
-const ROLE_MANAGER_ABI = [
-  "function getRole(address user) external view returns (uint8)",
-];
 
 export type UserRole = "user" | "issuer" | "ISSUER_OFFICER" | "APPROVER" | "ADMIN" | "CITIZEN" | "UNIVERSITY";
-
-const ROLE_MAP: Record<number, UserRole> = {
-  0: "CITIZEN",
-  1: "ISSUER_OFFICER",
-  2: "APPROVER",
-  3: "ADMIN",
-};
 
 export interface User {
   id: string;
@@ -49,8 +36,10 @@ export const useAuth = () => {
 
 /**
  * Prioritizes the backend role which is verified against the Hyperledger Fabric Gateway.
+ * No longer uses on-chain role verification since we migrated to Fabric.
  */
 const getRoleFromChain = async (walletAddress: string, backendRole: UserRole): Promise<UserRole> => {
+  // Backend role is the source of truth (verified against Fabric MSP)
   return backendRole || "CITIZEN";
 };
 

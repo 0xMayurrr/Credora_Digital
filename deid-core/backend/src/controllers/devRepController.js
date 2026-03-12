@@ -1,9 +1,9 @@
-const blockchainService = require('../services/blockchainService');
+const chaincodeService = require('../services/chaincodeService');
 const Credential = require('../models/Credential');
 
-// @desc    Update and retrieve Dev Rep Score
+// @desc    Update and retrieve Dev Rep Score (Fabric-based)
 // @route   POST /devrep/update
-// @access  Private (Issuer or User themselves, but contract requires Issuer. Let's use server wallet to sign it as the contract's authorized issuer if the system is doing it, or we need to ensure the caller is an Issuer on-chain. Actually, the contract has `onlyAuthorizedIssuer` for `updateRepScore`. If a student wants to update their score, the backend server (which is an authorized issuer) can execute it for them.)
+// @access  Private
 exports.updateDevRepScore = async (req, res, next) => {
     try {
         const { githubRepos } = req.body;
@@ -16,17 +16,22 @@ exports.updateDevRepScore = async (req, res, next) => {
         });
 
         const reposCount = parseInt(githubRepos) || 0;
-        const multiplier = 10; // For instance: (repos + badges) * 10
+        const multiplier = 10;
+        const calculatedScore = (reposCount + badgesCount) * multiplier;
 
-        // Ensure server wallet issues it, as it's authorized
-        // Update on-chain
-        const tx = await blockchainService.updateRepScore(userWallet, reposCount, badgesCount, multiplier);
+        // Store in MongoDB (Fabric chaincode can also store if needed)
+        // For now, we'll just calculate and return
+        // In production, you could call chaincodeService to store on Fabric
 
         res.status(200).json({
             success: true,
-            message: 'Dev Rep Score updated successfully',
-            score: (reposCount + badgesCount) * multiplier,
-            txHash: tx.txHash
+            message: 'Dev Rep Score calculated successfully',
+            score: calculatedScore,
+            details: {
+                repos: reposCount,
+                badges: badgesCount,
+                multiplier: multiplier
+            }
         });
 
     } catch (error) {
@@ -37,15 +42,24 @@ exports.updateDevRepScore = async (req, res, next) => {
 
 // @desc    Get Dev Rep Score
 // @route   GET /devrep/:walletAddress
-// @access  Public or Private
+// @access  Public
 exports.getDevRepScore = async (req, res, next) => {
     try {
         const walletAddress = req.params.walletAddress.toLowerCase();
-        const score = await blockchainService.getRepScore(walletAddress);
+        
+        // Calculate from MongoDB credentials
+        const badgesCount = await Credential.countDocuments({
+            recipientWallet: walletAddress,
+            revoked: false
+        });
+
+        // Default repos to 0 if not stored
+        const score = badgesCount * 10;
 
         res.status(200).json({
             success: true,
-            score: score
+            score: score,
+            badges: badgesCount
         });
 
     } catch (error) {
