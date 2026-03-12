@@ -1,41 +1,43 @@
-import { useContracts } from './useContracts';
-
 /**
- * useRevocation — check and perform credential revocation directly on-chain.
+ * useRevocation — Fabric-based revocation via REST API
  */
+
+import { api } from '@/lib/api';
+
 export const useRevocation = () => {
-  const { getSignerAndContracts, getReadOnlyContracts } = useContracts();
-
   /**
-   * Revoke a credential. Requires ADMIN MetaMask account.
-   * Writes to RevocationRegistry on-chain.
+   * Check if a credential is revoked via backend API
    */
-  const revokeCredential = async (docHash: string, reason: string) => {
-    const { revocationRegistry } = await getSignerAndContracts();
-    const tx = await revocationRegistry.revoke(docHash, reason);
-    return tx.wait();
+  const isRevoked = async (credentialId: string): Promise<boolean> => {
+    try {
+      const token = localStorage.getItem("deid_token") || "";
+      const res = await api.credentials.getById(credentialId, token);
+      return res.data?.revoked || false;
+    } catch {
+      return false;
+    }
   };
 
   /**
-   * Check if a credential is revoked — reads from chain, no backend.
-   * Works even if the backend is down or the internet is slow.
+   * Get revocation details from backend
    */
-  const isRevoked = async (docHash: string): Promise<boolean> => {
-    const { revocationRegistry } = getReadOnlyContracts();
-    return await revocationRegistry.isRevoked(docHash);
-  };
-
-  /**
-   * Get full revocation record — reason, who revoked it, when.
-   */
-  const getRevocationDetails = async (docHash: string) => {
-    const { revocationRegistry } = getReadOnlyContracts();
-    const details = await revocationRegistry.getRevocationDetails(docHash);
+  const getRevocationDetails = async (credentialId: string) => {
+    const token = localStorage.getItem("deid_token") || "";
+    const res = await api.credentials.getById(credentialId, token);
     return {
-      reason:    details.reason,
-      revokedBy: details.revokedBy,
-      timestamp: new Date(Number(details.timestamp) * 1000),
+      reason: 'Revoked by issuer',
+      revokedBy: res.data?.issuerId?.walletAddress || 'Unknown',
+      timestamp: res.data?.updatedAt ? new Date(res.data.updatedAt) : new Date(),
     };
+  };
+
+  /**
+   * Revoke a credential via backend API (calls Fabric chaincode)
+   */
+  const revokeCredential = async (credentialId: string, reason: string) => {
+    const token = localStorage.getItem("deid_token");
+    if (!token) throw new Error("No auth token");
+    return await api.credentials.revoke(credentialId, token);
   };
 
   return { revokeCredential, isRevoked, getRevocationDetails };

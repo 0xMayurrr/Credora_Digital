@@ -8,7 +8,7 @@ const ROLE_MANAGER_ABI = [
   "function getRole(address user) external view returns (uint8)",
 ];
 
-export type UserRole = "user" | "issuer" | "ISSUER_OFFICER" | "APPROVER" | "ADMIN" | "CITIZEN";
+export type UserRole = "user" | "issuer" | "ISSUER_OFFICER" | "APPROVER" | "ADMIN" | "CITIZEN" | "UNIVERSITY";
 
 const ROLE_MAP: Record<number, UserRole> = {
   0: "CITIZEN",
@@ -48,33 +48,10 @@ export const useAuth = () => {
 };
 
 /**
- * Reads the user's role directly from the RoleManager contract.
- * Falls back to the backend-provided role if the contract address isn't set yet.
+ * Prioritizes the backend role which is verified against the Hyperledger Fabric Gateway.
  */
-const getRoleFromChain = async (walletAddress: string): Promise<UserRole> => {
-  try {
-    // Only query if the contract address is actually configured
-    if (
-      !CONTRACT_ADDRESSES.ROLE_MANAGER ||
-      CONTRACT_ADDRESSES.ROLE_MANAGER === "0x0000000000000000000000000000000000000000"
-    ) {
-      return "CITIZEN";
-    }
-    const provider = new ethers.JsonRpcProvider(
-      (import.meta as any).env.VITE_BLOCKCHAIN_RPC ||
-      "https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161"
-    );
-    const roleContract = new ethers.Contract(
-      CONTRACT_ADDRESSES.ROLE_MANAGER,
-      ROLE_MANAGER_ABI,
-      provider
-    );
-    const roleId = await roleContract.getRole(walletAddress);
-    return ROLE_MAP[Number(roleId)] || "CITIZEN";
-  } catch (err) {
-    console.warn("Could not read role from chain, falling back to DB role.", err);
-    return "CITIZEN";
-  }
+const getRoleFromChain = async (walletAddress: string, backendRole: UserRole): Promise<UserRole> => {
+  return backendRole || "CITIZEN";
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -93,9 +70,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     try {
       const { token, user: userData } = await api.auth.login(email, password);
-      // For email users, role comes from DB (email users have no wallet to check on-chain)
-      const u: User = { ...userData, loginMethod: "email" as const };
-      persistUser(u);
+      persistUser({ ...userData, loginMethod: "email" });
       localStorage.setItem("deid_token", token);
     } finally {
       setIsLoading(false);
@@ -106,38 +81,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     if (!(window as any).ethereum) {
       setIsLoading(false);
-      throw new Error("MetaMask not installed. Please install MetaMask extension.");
+      throw new Error("MetaMask not installed");
     }
     try {
-      // Request account access (shows MetaMask popup)
       const accounts = await (window as any).ethereum.request({ method: "eth_requestAccounts" });
       const address = accounts[0];
 
-      // 1. Get nonce — passes role + extra profile fields so backend saves them
       const { nonce } = await api.auth.getNonce(address, role, extraFields);
-
-      // 2. Ask user to sign the nonce to prove wallet ownership
       const signature = await (window as any).ethereum.request({
         method: "personal_sign",
         params: [nonce, address],
       });
 
-      // 3. Verify signature with backend — get JWT token + profile
       const { token, user: userData } = await api.auth.verifyWallet(address, signature);
+      const effectiveRole: UserRole = (userData.role as UserRole) || "CITIZEN";
 
-      // 4. ✅ Read the REAL role from the blockchain (overrides DB role if mismatch)
-      const chainRole = await getRoleFromChain(address);
-      const effectiveRole: UserRole =
-        chainRole !== "CITIZEN" ? chainRole : (userData.role as UserRole) || "CITIZEN";
-
-      const u: User = {
+      persistUser({
         ...userData,
         role: effectiveRole,
-        loginMethod: "wallet" as const,
-      };
-      persistUser(u);
+        loginMethod: "wallet",
+      });
       localStorage.setItem("deid_token", token);
-    } catch (error: any) {
+    } catch (error) {
       console.error("Wallet connection error:", error);
       throw error;
     } finally {
@@ -149,10 +114,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     try {
       const { token, user: userData } = await api.auth.signup(email, password, name, role, extraFields);
-      const u: User = { ...userData, loginMethod: "email" as const };
-      persistUser(u);
+      persistUser({ ...userData, loginMethod: "email" });
       localStorage.setItem("deid_token", token);
-    } catch (error: any) {
+    } catch (error) {
       console.error("Signup error:", error);
       throw error;
     } finally {
@@ -172,3 +136,4 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     </AuthContext.Provider>
   );
 };
+

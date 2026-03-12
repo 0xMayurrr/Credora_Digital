@@ -1,2 +1,0 @@
-﻿Deploying contracts with the account: 0x7D828173126408B4Fbdd3CEf614698d452BE5a3e
-CredentialRegistry deployed to: 0x40915aad072f230d6d316321Ee05aD405bc8807d

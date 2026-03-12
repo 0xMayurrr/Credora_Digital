@@ -1,124 +1,65 @@
-import { ethers } from 'ethers';
-import { useContracts } from './useContracts';
-import { CONTRACT_ADDRESSES, ACTIVE_NETWORK } from '@/config/contracts';
+import { api } from '@/lib/api';
 
 /**
- * useCredentials — issues and verifies credentials DIRECTLY on-chain.
- *
- * Key security properties:
- * - Issuance: issuer signs via their own MetaMask (EIP-712). Server cannot fake this.
- * - Verification: reads from chain via public RPC. No backend call needed.
+ * useCredentials — issues and verifies credentials on Hyperledger Fabric.
  */
 export const useCredentials = () => {
-  const { getSignerAndContracts, getReadOnlyContracts } = useContracts();
 
   /**
-   * Issue a credential on-chain.
-   * The issuer's MetaMask must sign an EIP-712 typed data message.
-   *
-   * Flow:
-   * 1. Upload document to IPFS (call api.ipfs.upload() first — that's fine, IPFS is not blockchain)
-   * 2. Call this function with the returned IPFS URI
-   * 3. MetaMask pops up twice: once to sign (EIP-712), once to send the transaction
+   * Issue a credential.
+   * Calls the backend which performs Fabric Gov-SDK issuance.
    */
   const issueCredential = async (
     subject: string,       // recipient wallet
     credentialType: string,
-    ipfsMetadataURI: string,
-    expirationDate: number  // Unix timestamp, 0 = no expiry
+    title: string,
+    description: string,
+    file: File,
+    expirationDate?: string
   ) => {
-    const { credentialRegistry, signer } = await getSignerAndContracts();
+    const token = localStorage.getItem("deid_token");
+    if (!token) throw new Error("No auth token");
 
-    const domain = {
-      name: 'CredoraRegistry',
-      version: '1',
-      chainId: (await signer.provider!.getNetwork()).chainId,
-      verifyingContract: CONTRACT_ADDRESSES.CREDENTIAL_REGISTRY,
-    };
+    const formData = new FormData();
+    formData.append("recipientWallet", subject);
+    formData.append("credentialType", credentialType);
+    formData.append("title", title);
+    formData.append("description", description);
+    formData.append("category", credentialType);
+    if (expirationDate) formData.append("expiryDate", expirationDate);
+    formData.append("document", file);
 
-    const types = {
-      Credential: [
-        { name: 'subject',         type: 'address' },
-        { name: 'credentialType',  type: 'string'  },
-        { name: 'metadataURI',     type: 'string'  },
-        { name: 'expirationDate',  type: 'uint256' },
-      ],
-    };
-
-    const value = { subject, credentialType, metadataURI: ipfsMetadataURI, expirationDate };
-
-    // Step 1: EIP-712 sign from issuer's own wallet
-    const signature = await signer.signTypedData(domain, types, value);
-
-    // Step 2: Send the tx — the contract verifies the signature matches msg.sender
-    const tx = await credentialRegistry.issueCredential(
-      subject,
-      credentialType,
-      ipfsMetadataURI,
-      expirationDate,
-      signature
-    );
-    const receipt = await tx.wait();
-
-    // Parse CredentialIssued event to get the on-chain credentialId
-    const iface = credentialRegistry.interface;
-    const event = receipt.logs
-      .map((log: any) => { try { return iface.parseLog(log); } catch { return null; } })
-      .find((e: any) => e?.name === 'CredentialIssued');
-
-    return {
-      receipt,
-      txHash: receipt.hash,
-      credentialId: event?.args?.credentialId as string | undefined,
-    };
+    const res = await api.credentials.issue(formData, token);
+    return res.data;
   };
 
-  /**
-   * Verify a credential — reads directly from blockchain.
-   * Does NOT call the backend. Works even if the backend is down.
-   */
+  /** Verify via Fabric REST Bridge */
   const verifyCredential = async (credentialId: string) => {
-    const { credentialRegistry } = getReadOnlyContracts();
-    const result = await credentialRegistry.verifyCredential(credentialId);
+    const res = await api.credentials.getById(credentialId, ""); // public check often
     return {
-      isValid:         result.isValid,
-      isExpired:       result.isExpired,
-      isRevoked:       result.isRevoked,
-      issuer:          result.issuer,
-      subject:         result.subject,
-      credentialType:  result.credentialType,
-      issuedAt:        new Date(Number(result.issuedAt) * 1000),
-      explorerUrl:     `${ACTIVE_NETWORK.explorerUrl}/address/${result.issuer}`,
+      isValid:         !res.data.revoked,
+      isExpired:       res.data.expiryDate ? new Date(res.data.expiryDate) < new Date() : false,
+      isRevoked:       res.data.revoked,
+      issuer:          res.data.issuerId?.organizationName || "Official Issuer",
+      subject:         res.data.recipientWallet,
+      credentialType:  res.data.category,
+      issuedAt:        new Date(res.data.issuedAt || res.data.createdAt),
     };
   };
 
-  /**
-   * Get all credentials for the connected wallet — reads from blockchain.
-   */
+  /** Get credentials for current user */
   const getMyCredentials = async () => {
-    const { credentialRegistry, address } = await getSignerAndContracts();
-    const credentialIds: string[] = await credentialRegistry.getCredentialsBySubject(address);
-    const credentials = await Promise.all(
-      credentialIds.map((id: string) => credentialRegistry.getCredential(id))
-    );
-    return credentials.map((c: any, i: number) => ({
-      credentialId: credentialIds[i],
-      issuer:        c.issuer,
-      subject:       c.subject,
-      credentialType: c.credentialType,
-      metadataURI:   c.metadataURI,
-      issuedAt:      new Date(Number(c.issuedAt) * 1000),
-      revoked:       c.revoked,
-    }));
+    const token = localStorage.getItem("deid_token");
+    if (!token) return [];
+    const res = await api.credentials.getAll(token);
+    return res.data;
   };
 
-  /**
-   * Revoke a credential — only the original issuer can do this.
-   */
+  /** Revoke on Fabric via backend */
   const revokeOnChain = async (credentialId: string) => {
-    const { credentialRegistry } = await getSignerAndContracts();
-    const tx = await credentialRegistry.revokeCredential(credentialId);
-    return tx.wait();
+    const token = localStorage.getItem("deid_token");
+    if (!token) throw new Error("No auth token");
+    return await api.credentials.revoke(credentialId, token);
   };
 
   return { issueCredential, verifyCredential, getMyCredentials, revokeOnChain };

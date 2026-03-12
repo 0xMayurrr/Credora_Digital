@@ -95,9 +95,8 @@ services:
     working_dir: /root
     command: orderer
     volumes:
-      - ./organizations/orderer/msp:/var/hyperledger/orderer/msp
-      - ./organizations/orderer/tls:/var/hyperledger/orderer/tls
-      - ./channel-artifacts/genesis.block:/var/hyperledger/orderer/orderer.genesis.block
+      - ./organizations/ordererOrganizations/credora.com/orderers/orderer.credora.com/msp:/var/hyperledger/orderer/msp
+      - ./organizations/ordererOrganizations/credora.com/orderers/orderer.credora.com/tls:/var/hyperledger/orderer/tls
       - orderer.credora.com:/var/hyperledger/production/orderer
     ports:
       - "7050:7050"
@@ -181,8 +180,8 @@ services:
     command: peer node start
     volumes:
       - /var/run/docker.sock:/host/var/run/docker.sock
-      - ./organizations/org1-government/peers/peer0/msp:/etc/hyperledger/fabric/msp
-      - ./organizations/org1-government/peers/peer0/tls:/etc/hyperledger/fabric/tls
+      - ./organizations/peerOrganizations/government.credora.com/peers/peer0.government.credora.com/msp:/etc/hyperledger/fabric/msp
+      - ./organizations/peerOrganizations/government.credora.com/peers/peer0.government.credora.com/tls:/etc/hyperledger/fabric/tls
       - peer0.government.credora.com:/var/hyperledger/production
     depends_on:
       - couchdb.government
@@ -224,8 +223,8 @@ services:
     command: peer node start
     volumes:
       - /var/run/docker.sock:/host/var/run/docker.sock
-      - ./organizations/org2-universities/peers/peer0/msp:/etc/hyperledger/fabric/msp
-      - ./organizations/org2-universities/peers/peer0/tls:/etc/hyperledger/fabric/tls
+      - ./organizations/peerOrganizations/university.credora.com/peers/peer0.university.credora.com/msp:/etc/hyperledger/fabric/msp
+      - ./organizations/peerOrganizations/university.credora.com/peers/peer0.university.credora.com/tls:/etc/hyperledger/fabric/tls
       - peer0.university.credora.com:/var/hyperledger/production
     depends_on:
       - couchdb.university
@@ -267,8 +266,8 @@ services:
     command: peer node start
     volumes:
       - /var/run/docker.sock:/host/var/run/docker.sock
-      - ./organizations/org3-verifiers/peers/peer0/msp:/etc/hyperledger/fabric/msp
-      - ./organizations/org3-verifiers/peers/peer0/tls:/etc/hyperledger/fabric/tls
+      - ./organizations/peerOrganizations/verifier.credora.com/peers/peer0.verifier.credora.com/msp:/etc/hyperledger/fabric/msp
+      - ./organizations/peerOrganizations/verifier.credora.com/peers/peer0.verifier.credora.com/tls:/etc/hyperledger/fabric/tls
       - peer0.verifier.credora.com:/var/hyperledger/production
     depends_on:
       - couchdb.verifier
@@ -302,7 +301,8 @@ services:
     command: /bin/bash
     volumes:
       - /var/run/docker.sock:/host/var/run/docker.sock
-      - ./organizations:/opt/gopath/src/github.com/credora/crypto-config
+      - ./organizations/peerOrganizations:/opt/gopath/src/github.com/credora/crypto-config/peerOrganizations
+      - ./organizations/ordererOrganizations:/opt/gopath/src/github.com/credora/crypto-config/ordererOrganizations
       - ./channel-artifacts:/opt/gopath/src/github.com/credora/channel-artifacts
       - ../chaincode:/opt/gopath/src/chaincode
     depends_on:

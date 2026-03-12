@@ -1,66 +1,38 @@
-import { useContracts } from './useContracts';
-
-const ROLE_NAMES: Record<number, string> = {
-  0: 'CITIZEN',
-  1: 'ISSUER_OFFICER',
-  2: 'APPROVER',
-  3: 'ADMIN',
-};
+import { useAuth } from '@/contexts/AuthContext';
 
 /**
- * useRole — reads and writes roles DIRECTLY from the RoleManager contract.
- * This is the source of truth for access control. Never use the database for this.
+ * useRole — determines user role based on authenticated identity (Fabric/MSP backed)
  */
 export const useRole = () => {
-  const { getSignerAndContracts, getReadOnlyContracts } = useContracts();
+  const { user } = useAuth();
 
   /**
-   * Get a user's role as a string by reading directly from the RoleManager contract.
-   * No MetaMask popup needed (read-only).
+   * Get a user's role string.
    */
-  const getUserRole = async (address: string): Promise<string> => {
-    const { roleManager } = getReadOnlyContracts();
-    const roleId = await roleManager.getRole(address);
-    return ROLE_NAMES[Number(roleId)] || 'CITIZEN';
+  const getUserRole = async (): Promise<string> => {
+    return user?.role || 'CITIZEN';
   };
 
   /**
-   * Assign a role to an address. Requires ADMIN role in MetaMask.
-   * 0 = CITIZEN, 1 = ISSUER_OFFICER, 2 = APPROVER, 3 = ADMIN
+   * Check if a user is an ISSUER_OFFICER (University/Govt Issuer)
    */
-  const assignRole = async (targetAddress: string, role: number) => {
-    const { roleManager } = await getSignerAndContracts();
-    const tx = await roleManager.assignRole(targetAddress, role);
-    const receipt = await tx.wait();
-    return receipt;
+  const isVerifiedIssuer = async (): Promise<boolean> => {
+    return user?.role === 'ISSUER_OFFICER' || user?.role === 'UNIVERSITY';
   };
 
   /**
-   * Check if an address has the ISSUER_OFFICER role.
+   * Check if a user is an ADMIN (MeitY/NIC)
    */
-  const isVerifiedIssuer = async (address: string): Promise<boolean> => {
-    const { roleManager } = getReadOnlyContracts();
-    const ISSUER_OFFICER_ROLE = await roleManager.ISSUER_OFFICER_ROLE();
-    return await roleManager.hasRole(ISSUER_OFFICER_ROLE, address);
+  const isAdmin = async (): Promise<boolean> => {
+    return user?.role === 'ADMIN';
   };
 
   /**
-   * Check if an address is an ADMIN.
+   * Check if a user is an APPROVER
    */
-  const isAdmin = async (address: string): Promise<boolean> => {
-    const { roleManager } = getReadOnlyContracts();
-    const ADMIN_ROLE = await roleManager.ADMIN_ROLE();
-    return await roleManager.hasRole(ADMIN_ROLE, address);
+  const isApprover = async (): Promise<boolean> => {
+    return user?.role === 'APPROVER';
   };
 
-  /**
-   * Check if an address is an APPROVER.
-   */
-  const isApprover = async (address: string): Promise<boolean> => {
-    const { roleManager } = getReadOnlyContracts();
-    const APPROVER_ROLE = await roleManager.APPROVER_ROLE();
-    return await roleManager.hasRole(APPROVER_ROLE, address);
-  };
-
-  return { getUserRole, assignRole, isVerifiedIssuer, isAdmin, isApprover };
+  return { getUserRole, isVerifiedIssuer, isAdmin, isApprover };
 };

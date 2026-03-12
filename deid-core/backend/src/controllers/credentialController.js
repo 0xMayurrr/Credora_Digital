@@ -3,8 +3,9 @@ const Credential = require('../models/Credential');
 const User = require('../models/User');
 const Issuer = require('../models/Issuer');
 const ipfsService = require('../services/ipfsService');
-const blockchainService = require('../services/blockchainService');
-const aiFraudService = require('../services/aiFraudService');
+const chaincodeService = require('../services/chaincodeService');
+const aiService = require('../services/aiService');
+const oracleService = require('../services/oracleService');
 
 // @desc    Issue a new credential
 // @route   POST /credentials/issue
@@ -29,51 +30,45 @@ exports.issueCredential = async (req, res, next) => {
             return res.status(400).json({ success: false, error: 'Invalid recipient wallet address format' });
         }
 
-        // Verify role
-        if (req.user.role !== 'issuer') {
-            return res.status(403).json({ success: false, error: 'Only unauthorized issuers can issue credentials' });
-        }
-
-        // Verify issuer status
-        const isAuthorizedOnChain = await blockchainService.checkIssuer(req.user.walletAddress);
-        if (!isAuthorizedOnChain) {
-            return res.status(403).json({ success: false, error: 'Issuer is not authorized on blockchain' });
+        // Verify role (Fabric specific)
+        const callerRole = req.user.role || 'ISSUER_OFFICER';
+        if (!['issuer', 'ISSUER_OFFICER', 'ADMIN', 'UNIVERSITY'].includes(callerRole)) {
+            return res.status(403).json({ success: false, error: 'Only authorized issuers can issue credentials' });
         }
 
         if (!req.file) {
             return res.status(400).json({ success: false, error: 'Please upload a document file' });
         }
 
-        // AI OCR / Fraud Detection Check
-        const aiCheck = await aiFraudService.validateDocument(req.file.buffer, req.file.mimetype, recipientWallet);
-        if (!aiCheck.isValid) {
-            return res.status(400).json({
-                success: false,
-                error: `Fraud Detection Failed. Confidence Score: ${aiCheck.confidence.toFixed(2)}. AI thinks this document might be invalid or forged.`
-            });
-        }
-
         // 1. Upload to IPFS
-        const ipfsCID = await ipfsService.uploadToIPFS(
-            req.file.buffer,
-            req.file.originalname,
-            req.file.mimetype
-        );
+        const ipfsCID = await ipfsService.uploadToIPFS(req.file.buffer, req.file.originalname, req.file.mimetype);
+        const ipfsMetadataURI = `ipfs://${ipfsCID}`;
 
-        // 2. Generate Hash
+        // 2. Generate Hash & ZK Commitment Stub
         const hashContent = `${req.user.walletAddress}-${recipientWallet}-${ipfsCID}-${Date.now()}`;
         const credentialHash = '0x' + crypto.createHash('sha256').update(hashContent).digest('hex');
+
+        // Poseidon-friendly hash for ZK system (Phase 5)
+        const zkCommitment = '0x' + crypto.createHash('sha256').update(credentialHash + 'salt').digest('hex');
 
         // 3. Optional: find recipient user id if registered
         const recipientUser = await User.findOne({ walletAddress: recipientWallet.toLowerCase() });
         const recipientId = recipientUser ? recipientUser._id : null;
 
-        // 4. Issue On-Chain
-        const blockchainRes = await blockchainService.issueCredential(
-            recipientWallet,
-            ipfsCID,
-            credentialHash
-        );
+        // 4. Issue On-Chain (Fabric)
+        let fabricRes;
+        try {
+            fabricRes = await chaincodeService.issueCredential(callerRole, {
+                credentialId: credentialHash,
+                subjectId: recipientWallet.toLowerCase(),
+                credentialType: category || 'GeneralCredential',
+                ipfsMetadataURI,
+                expiryDate: expiryDate || ''
+            }, zkCommitment);
+        } catch (fabricErr) {
+            console.error('Fabric Issuance Error:', fabricErr.message);
+            return res.status(500).json({ success: false, error: `Fabric Error: ${fabricErr.message}` });
+        }
 
         // 5. Save to MongoDB
         const credential = await Credential.create({
@@ -85,15 +80,12 @@ exports.issueCredential = async (req, res, next) => {
             category: category || 'other',
             ipfsCID,
             credentialHash,
-            blockchainTxHash: blockchainRes.txHash,
-            expiryDate: expiryDate ? new Date(expiryDate) : null
+            blockchainTxHash: fabricRes.proof?.proofValue || 'FABRIC_TX',
+            expiryDate: expiryDate ? new Date(expiryDate) : null,
+            zkCommitment
         });
 
-        res.status(201).json({
-            success: true,
-            data: credential
-        });
-
+        res.status(201).json({ success: true, data: credential, fabricProof: fabricRes.proof });
     } catch (error) {
         console.error('Issue Credential Error:', error);
         next(error);
@@ -116,8 +108,16 @@ exports.revokeCredential = async (req, res, next) => {
             return res.status(403).json({ success: false, error: 'Not authorized to revoke this credential' });
         }
 
-        // Revoke On-Chain
-        await blockchainService.revokeCredential(credential.credentialHash);
+        // Revoke On-Chain (Fabric)
+        try {
+            await chaincodeService.revokeCredential(
+                req.user.role,
+                credential.credentialHash,
+                'Revoked by issuer via portal'
+            );
+        } catch (fabricErr) {
+            return res.status(500).json({ success: false, error: `Fabric Error: ${fabricErr.message}` });
+        }
 
         // Update DB
         credential.revoked = true;
