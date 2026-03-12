@@ -4,7 +4,8 @@ const User = require('../models/User');
 const Issuer = require('../models/Issuer');
 const ipfsService = require('../services/ipfsService');
 const chaincodeService = require('../services/chaincodeService');
-const aiService = require('../services/aiService');
+const AIFraudDetectionService = require('../services/aiService');
+const FraudLog = require('../models/FraudLog');
 const oracleService = require('../services/oracleService');
 
 // @desc    Issue a new credential
@@ -51,11 +52,59 @@ exports.issueCredential = async (req, res, next) => {
         // Poseidon-friendly hash for ZK system (Phase 5)
         const zkCommitment = '0x' + crypto.createHash('sha256').update(credentialHash + 'salt').digest('hex');
 
-        // 3. Optional: find recipient user id if registered
+        // ?????? 3. AI FRAUD DETECTION ???????????????????????????????????????????????????????????????????????????????????????????????????
+        // Analyze credential for fraud BEFORE issuing on-chain
+        let fraudAnalysis;
+        try {
+            fraudAnalysis = await AIFraudDetectionService.analyzeCredential({
+                issuerName:      req.user.organizationName || req.user.name || '',
+                issuerOrg:       req.user.orgMSP || '',
+                credentialType:  category || 'GeneralCredential',
+                issuedAt:        new Date().toISOString(),
+                recipientWallet: recipientWallet.toLowerCase(),
+                credentialHash,
+                expiryDate:      expiryDate || null,
+            });
+
+            // Log the analysis to MongoDB
+            await FraudLog.create({
+                credentialId:    credentialHash,
+                credentialHash,
+                issuerName:      req.user.organizationName || req.user.name || 'unknown',
+                credentialType:  category || 'GeneralCredential',
+                recipientWallet: recipientWallet.toLowerCase(),
+                fraudScore:      fraudAnalysis.fraudScore,
+                riskLevel:       fraudAnalysis.riskLevel,
+                recommendation:  fraudAnalysis.recommendation,
+                action:          fraudAnalysis.action,
+                signals:         fraudAnalysis.signals,
+            }).catch(err => console.warn('FraudLog save warning:', err.message));
+
+            // Block CRITICAL risk credentials immediately
+            if (fraudAnalysis.riskLevel === 'CRITICAL') {
+                return res.status(403).json({
+                    success: false,
+                    error: 'Credential blocked by AI fraud detection',
+                    fraudAnalysis: {
+                        fraudScore: fraudAnalysis.fraudScore,
+                        riskLevel: fraudAnalysis.riskLevel,
+                        recommendation: fraudAnalysis.recommendation,
+                        action: fraudAnalysis.action,
+                        signals: fraudAnalysis.signals,
+                    },
+                });
+            }
+        } catch (aiErr) {
+            console.warn('AI fraud check warning (non-blocking):', aiErr.message);
+            // Fail-open: if AI check fails, allow issuance to proceed
+            fraudAnalysis = { fraudScore: 0, riskLevel: 'UNKNOWN', recommendation: 'APPROVE' };
+        }
+
+        // 4. Optional: find recipient user id if registered
         const recipientUser = await User.findOne({ walletAddress: recipientWallet.toLowerCase() });
         const recipientId = recipientUser ? recipientUser._id : null;
 
-        // 4. Issue On-Chain (Fabric)
+        // 5. Issue On-Chain (Fabric)
         let fabricRes;
         try {
             fabricRes = await chaincodeService.issueCredential(callerRole, {
@@ -70,7 +119,7 @@ exports.issueCredential = async (req, res, next) => {
             return res.status(500).json({ success: false, error: `Fabric Error: ${fabricErr.message}` });
         }
 
-        // 5. Save to MongoDB
+        // 6. Save to MongoDB
         const credential = await Credential.create({
             issuerId: req.user._id,
             recipientWallet: recipientWallet.toLowerCase(),
@@ -85,12 +134,22 @@ exports.issueCredential = async (req, res, next) => {
             zkCommitment
         });
 
-        res.status(201).json({ success: true, data: credential, fabricProof: fabricRes.proof });
+        res.status(201).json({
+            success: true,
+            data: credential,
+            fabricProof: fabricRes.proof,
+            fraudAnalysis: {
+                fraudScore: fraudAnalysis.fraudScore,
+                riskLevel: fraudAnalysis.riskLevel,
+                recommendation: fraudAnalysis.recommendation,
+            },
+        });
     } catch (error) {
         console.error('Issue Credential Error:', error);
         next(error);
     }
 };
+
 
 // @desc    Revoke a credential
 // @route   PUT /credentials/revoke/:id
