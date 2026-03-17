@@ -14,8 +14,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["Inter", "sans-serif"],
-        display: ["Space Grotesk", "sans-serif"],
+        sans: ["Inter", "Public Sans", "system-ui", "sans-serif"],
+        display: ["Public Sans", "Inter", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -69,6 +69,15 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        /* Government-specific color tokens */
+        gov: {
+          navy: "hsl(var(--gov-navy))",
+          "navy-deep": "hsl(var(--gov-navy-deep))",
+          gold: "hsl(var(--gov-gold))",
+          "gold-light": "hsl(var(--gov-gold-light))",
+          seal: "hsl(var(--gov-seal))",
+          trust: "hsl(var(--gov-trust-green))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -84,20 +93,20 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
-        "float": {
-          "0%, 100%": { transform: "translateY(0px)" },
-          "50%": { transform: "translateY(-10px)" },
+        "fade-in": {
+          "0%": { opacity: "0", transform: "translateY(8px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
         },
-        "pulse-glow": {
-          "0%, 100%": { boxShadow: "0 0 20px 0px hsl(174 72% 52% / 0.2)" },
-          "50%": { boxShadow: "0 0 40px 10px hsl(174 72% 52% / 0.3)" },
+        "seal-pulse": {
+          "0%, 100%": { boxShadow: "0 0 0 0 hsl(43 96% 42% / 0.2)" },
+          "50%": { boxShadow: "0 0 0 8px hsl(43 96% 42% / 0)" },
         },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
-        "float": "float 6s ease-in-out infinite",
-        "pulse-glow": "pulse-glow 3s ease-in-out infinite",
+        "fade-in": "fade-in 0.5s ease-out",
+        "seal-pulse": "seal-pulse 3s ease-in-out infinite",
       },
     },
   },

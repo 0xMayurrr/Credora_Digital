@@ -133,11 +133,7 @@ const Signup = () => {
 
           {/* Header */}
           <div className="flex justify-between items-center mt-4">
-            <h2 className="text-slate-900 font-bold text-3xl">Create Your Account</h2>
-            <p className="text-slate-500 text-sm">
-              Already registered?{" "}
-              <Link to="/login" className="text-blue-600 font-bold hover:underline">Login</Link>
-            </p>
+            <h2 className="text-slate-900 font-bold text-3xl">Access Your Account</h2>
           </div>
 
           {/* ── Role Selector ── */}
@@ -247,7 +243,7 @@ const Signup = () => {
               className="w-full py-4 bg-gradient-to-r from-blue-600 to-teal-500 rounded-xl text-white font-bold text-lg shadow-lg shadow-blue-500/20 hover:shadow-xl transition-all flex items-center justify-center gap-2 disabled:opacity-60"
             >
               {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <span>⬡</span>}
-              Create My Credora Identity
+              Continue
             </button>
           </form>
 

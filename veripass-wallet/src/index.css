@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Public+Sans:wght@300;400;500;600;700;800;900&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,54 +6,64 @@
 
 @layer base {
   :root {
-    --background: 222 47% 6%;
-    --foreground: 210 40% 96%;
+    /* Government Navy/Official Color Palette */
+    --background: 220 33% 98%;
+    --foreground: 220 40% 13%;
 
-    --card: 222 41% 10%;
-    --card-foreground: 210 40% 96%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 40% 13%;
 
-    --popover: 222 41% 10%;
-    --popover-foreground: 210 40% 96%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 40% 13%;
 
-    --primary: 174 72% 52%;
-    --primary-foreground: 222 47% 6%;
+    /* Deep Navy Blue - Primary */
+    --primary: 218 72% 23%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 222 30% 16%;
-    --secondary-foreground: 210 40% 90%;
+    --secondary: 220 20% 95%;
+    --secondary-foreground: 220 40% 13%;
 
-    --muted: 222 30% 14%;
-    --muted-foreground: 215 20% 55%;
+    --muted: 220 14% 93%;
+    --muted-foreground: 220 10% 45%;
 
-    --accent: 174 60% 40%;
-    --accent-foreground: 210 40% 98%;
+    /* Gold Accent */
+    --accent: 43 96% 42%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 55%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 72% 50%;
+    --destructive-foreground: 0 0% 100%;
 
-    --success: 152 69% 46%;
-    --success-foreground: 222 47% 6%;
+    --success: 158 64% 35%;
+    --success-foreground: 0 0% 100%;
 
-    --warning: 38 92% 55%;
-    --warning-foreground: 222 47% 6%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 220 40% 13%;
 
-    --border: 222 20% 18%;
-    --input: 222 20% 18%;
-    --ring: 174 72% 52%;
+    --border: 220 13% 87%;
+    --input: 220 13% 87%;
+    --ring: 218 72% 23%;
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;
 
-    --sidebar-background: 222 41% 8%;
-    --sidebar-foreground: 210 40% 90%;
-    --sidebar-primary: 174 72% 52%;
-    --sidebar-primary-foreground: 222 47% 6%;
-    --sidebar-accent: 222 30% 16%;
-    --sidebar-accent-foreground: 210 40% 90%;
-    --sidebar-border: 222 20% 18%;
-    --sidebar-ring: 174 72% 52%;
+    --sidebar-background: 218 72% 13%;
+    --sidebar-foreground: 220 20% 95%;
+    --sidebar-primary: 43 96% 56%;
+    --sidebar-primary-foreground: 218 72% 13%;
+    --sidebar-accent: 218 60% 18%;
+    --sidebar-accent-foreground: 220 20% 95%;
+    --sidebar-border: 218 50% 20%;
+    --sidebar-ring: 43 96% 56%;
 
-    --glass: 222 41% 10% / 0.6;
-    --glass-border: 222 20% 24%;
-    --glow-primary: 174 72% 52%;
+    /* Government-specific tokens */
+    --gov-navy: 218 72% 23%;
+    --gov-navy-deep: 218 72% 13%;
+    --gov-gold: 43 96% 42%;
+    --gov-gold-light: 43 96% 56%;
+    --gov-seal: 43 76% 50%;
+    --gov-trust-green: 158 64% 35%;
+    --gov-light-gray: 220 20% 97%;
+    --gov-medium-gray: 220 10% 60%;
+    --gov-border: 220 15% 85%;
   }
 }
 
@@ -63,37 +73,117 @@
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Public Sans', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: 'Public Sans', 'Inter', sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.01em;
   }
 }
 
 @layer utilities {
+  /* Government Glass Card */
   .glass-card {
-    @apply bg-card/60 backdrop-blur-xl border border-border/50 rounded-xl;
+    @apply bg-white border border-gray-200 rounded-lg shadow-sm;
   }
   .glass-card-hover {
-    @apply glass-card transition-all duration-300 hover:border-primary/30 hover:shadow-[0_0_30px_-5px_hsl(var(--primary)/0.15)];
+    @apply glass-card transition-all duration-300 hover:shadow-md hover:border-gray-300;
   }
-  .glow-text {
-    @apply text-primary drop-shadow-[0_0_12px_hsl(var(--primary)/0.5)];
+
+  /* Government Text Utilities */
+  .gov-gradient-text {
+    @apply bg-gradient-to-r from-[hsl(218,72%,23%)] to-[hsl(218,72%,38%)] bg-clip-text text-transparent;
   }
+  .gov-gold-text {
+    color: hsl(43, 96%, 42%);
+  }
+
+  /* Official Seal Styling */
+  .gov-seal {
+    @apply inline-flex items-center justify-center rounded-full;
+    background: linear-gradient(135deg, hsl(43, 76%, 55%), hsl(43, 96%, 42%));
+    box-shadow: 0 0 0 3px hsl(218, 72%, 23%), 0 0 0 5px hsl(43, 76%, 55%);
+  }
+
+  /* Trust Badge */
+  .trust-badge {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold uppercase tracking-wider;
+    background: hsl(218, 72%, 23%);
+    color: white;
+    border: 1px solid hsl(218, 72%, 30%);
+  }
+
+  /* Government Section Stroke */
+  .gov-section-divider {
+    @apply w-16 h-1 rounded-full;
+    background: linear-gradient(90deg, hsl(43, 96%, 42%), hsl(43, 96%, 56%));
+  }
+
+  /* Government Card */
+  .gov-card {
+    @apply bg-white rounded-lg border border-gray-200 p-6 shadow-sm transition-all duration-300;
+  }
+  .gov-card:hover {
+    @apply shadow-md;
+    border-color: hsl(218, 72%, 23%);
+  }
+
+  /* Logo Filter for Government Style */
+  .logo-filter {
+    filter: brightness(0) saturate(100%) invert(15%) sepia(70%) saturate(1200%) hue-rotate(200deg) brightness(90%) contrast(95%);
+  }
+
   .gradient-text {
-    @apply bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-[hsl(218,72%,23%)] to-[hsl(43,96%,42%)] bg-clip-text text-transparent;
   }
-  .gradient-border {
-    @apply border border-transparent bg-clip-padding;
-    background-image: linear-gradient(hsl(var(--card)), hsl(var(--card))), 
-                      linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
-    background-origin: border-box;
-    background-clip: padding-box, border-box;
-  }
+
   .section-padding {
     @apply px-4 sm:px-6 lg:px-8 py-16 sm:py-20 lg:py-24;
   }
-  .logo-filter {
-    filter: brightness(0) saturate(100%) invert(64%) sepia(48%) saturate(1000%) hue-rotate(135deg) brightness(95%) contrast(90%);
+
+  /* Official badge shimmer */
+  @keyframes seal-shimmer {
+    0% { opacity: 0.8; }
+    50% { opacity: 1; }
+    100% { opacity: 0.8; }
+  }
+  .seal-shimmer {
+    animation: seal-shimmer 3s ease-in-out infinite;
+  }
+
+  /* Government stripe top bar */
+  .gov-top-stripe {
+    background: linear-gradient(90deg, 
+      hsl(218, 72%, 23%) 0%, 
+      hsl(218, 72%, 23%) 60%,
+      hsl(43, 96%, 42%) 60%,
+      hsl(43, 96%, 42%) 100%
+    );
+    height: 4px;
+  }
+
+  /* Government pattern background */
+  .gov-pattern-bg {
+    background-image: 
+      radial-gradient(circle at 25% 25%, hsl(218, 72%, 23% / 0.03) 1px, transparent 1px),
+      radial-gradient(circle at 75% 75%, hsl(218, 72%, 23% / 0.03) 1px, transparent 1px);
+    background-size: 30px 30px;
+  }
+
+  /* Step indicator */
+  .step-number {
+    @apply inline-flex items-center justify-center w-12 h-12 rounded-full text-lg font-bold;
+    background: hsl(218, 72%, 23%);
+    color: white;
+    box-shadow: 0 0 0 4px hsl(218, 72%, 23% / 0.15);
+  }
+
+  /* Focus styles for accessibility */
+  .gov-focus:focus-visible {
+    outline: 3px solid hsl(43, 96%, 42%);
+    outline-offset: 2px;
   }
 }
