@@ -2,6 +2,27 @@ const DEFAULT_PROD_URL = "https://credora-wallet-backend.onrender.com/api";
 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 const API_URL = import.meta.env.VITE_API_URL || (isLocalhost ? `http://${window.location.hostname}:5000` : DEFAULT_PROD_URL);
 
+/**
+ * Backward-compat: The Render backend may still run an older User.js with
+ * enum: ['user', 'issuer', 'admin', 'verifier'].
+ * Map new Fabric role names → old-schema-safe values so Mongoose validation passes.
+ * Once Render redeploys the updated User.js (which has the full enum), this
+ * mapping is still safe because normalizeRole() on the new backend handles both.
+ */
+const toBackendRole = (role?: string): string => {
+  const map: Record<string, string> = {
+    ISSUER_OFFICER: 'issuer',   // old enum accepts 'issuer'
+    APPROVER:       'issuer',   // closest old-enum equivalent
+    ADMIN:          'admin',    // old enum accepts 'admin'
+    CITIZEN:        'user',     // old enum accepts 'user'
+    user:           'user',
+    issuer:         'issuer',
+    admin:          'admin',
+    verifier:       'verifier',
+  };
+  return (role && map[role]) || 'user';
+};
+
 export const api = {
   auth: {
     login: async (email: string, password: string) => {
@@ -17,7 +38,7 @@ export const api = {
       const res = await fetch(`${API_URL}/auth/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, name, role, ...extraFields }),
+        body: JSON.stringify({ email, password, name, role: toBackendRole(role), ...extraFields }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Signup failed');
@@ -27,7 +48,7 @@ export const api = {
       const res = await fetch(`${API_URL}/auth/nonce`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ walletAddress, role, ...extraFields }),
+        body: JSON.stringify({ walletAddress, role: toBackendRole(role), ...extraFields }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Failed to get nonce');
