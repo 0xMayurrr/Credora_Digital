@@ -76,12 +76,23 @@ async function getDashboardStats(callerRole) {
 // CREDENTIAL REGISTRY
 // ════════════════════════════════════════════════════════════════════════════
 
-async function issueCredential(callerRole, credData, zkCommitment) {
+/**
+ * issueCredential — passes all 8 args the CredentialRegistry chaincode expects:
+ *   credentialId, subjectId, credentialType, ipfsMetadataURI,
+ *   expiryDate, zkCommitment, zkGroupId
+ * BUG FIX: zkGroupId was previously dropped, breaking Semaphore group assignment.
+ */
+async function issueCredential(callerRole, credData, zkCommitment, zkGroupId) {
     const org = resolveOrgMSP(callerRole);
     const { credentialId, subjectId, credentialType, ipfsMetadataURI, expiryDate } = credData;
     return submitTransaction(org, 'credentialRegistry', 'issueCredential',
-        credentialId, subjectId, credentialType, ipfsMetadataURI,
-        expiryDate || '', zkCommitment || '');
+        credentialId,
+        subjectId,
+        credentialType,
+        ipfsMetadataURI,
+        expiryDate    || '',
+        zkCommitment  || '',
+        zkGroupId != null ? String(zkGroupId) : '');
 }
 
 async function verifyCredential(credentialId) {
